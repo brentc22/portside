@@ -28,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             MainActor.assumeIsolated { self?.refreshInBackground() }
         }
         timer?.tolerance = 2  // lets macOS batch the wake-ups with other timers
+        Updater.shared.start()
 
         // `open Portside.app --args --show-menu` pops the menu on launch — for
         // screenshots, since scripting can't click status items on macOS 27.

@@ -198,5 +198,123 @@ T.test("scan runs and sees this machine's listeners without crashing") {
     T.expect(ms < 2000, "scan took \(ms) ms")
 }
 
+print("AppVersion")
+T.test("parses tags and compares numerically") {
+    T.equal(AppVersion("v0.2.0")?.description, "0.2.0")
+    T.equal(AppVersion("0.2")?.description, "0.2.0", "missing parts count as 0:")
+    T.expect(AppVersion("1.10.0")! > AppVersion("1.9.9")!, "1.10.0 > 1.9.9")
+    T.expect(AppVersion("0.2.0")! > AppVersion("0.1.9")!, "0.2.0 > 0.1.9")
+    T.expect(AppVersion("0.1.0") == AppVersion("v0.1"), "0.1.0 == v0.1")
+    T.equal(AppVersion("2.0.0-beta.1")?.description, "2.0.0", "pre-release suffix dropped:")
+}
+T.test("rejects what isn't a version") {
+    T.expect(AppVersion("latest") == nil, "latest")
+    T.expect(AppVersion("1.2.3.4") == nil, "four parts")
+    T.expect(AppVersion("1..2") == nil, "empty part")
+    T.expect(AppVersion("") == nil, "empty")
+}
+
+print("Release")
+@MainActor func releaseJSON(tag: String, prerelease: Bool = false, assets: [String] = ["Portside.zip"]) -> Data {
+    let list = assets.map { #"{"name":"\#($0)","browser_download_url":"https://example.com/\#($0)"}"# }
+    return Data(#"""
+    {"tag_name":"\#(tag)","html_url":"https://github.com/brentc22/portside/releases/tag/\#(tag)",
+     "body":"- New icon","draft":false,"prerelease":\#(prerelease),"assets":[\#(list.joined(separator: ","))],
+     "author":{"login":"brentc22"}}
+    """#.utf8)
+}
+T.test("decodes GitHub's releases/latest and finds the zip") {
+    let release = try Release.decode(releaseJSON(tag: "v0.2.0", assets: ["checksums.txt", "Portside-0.2.0.zip"]))
+    T.equal(release.version, AppVersion("0.2.0"))
+    T.equal(release.body, "- New icon")
+    T.equal(release.zipURL(appName: "Portside")?.lastPathComponent, "Portside-0.2.0.zip")
+    T.expect(release.zipURL(appName: "Stash") == nil, "other app's zip is not ours")
+}
+T.test("offers only newer, non-skipped, final releases") {
+    let current = AppVersion("0.1.0")!
+    let newer = try Release.decode(releaseJSON(tag: "v0.2.0"))
+    let same = try Release.decode(releaseJSON(tag: "v0.1.0"))
+    let beta = try Release.decode(releaseJSON(tag: "v0.3.0", prerelease: true))
+    T.expect(UpdatePolicy.shouldOffer(newer, current: current, skipped: nil, userInitiated: false), "newer")
+    T.expect(!UpdatePolicy.shouldOffer(same, current: current, skipped: nil, userInitiated: true), "same version")
+    T.expect(!UpdatePolicy.shouldOffer(beta, current: current, skipped: nil, userInitiated: true), "prerelease")
+    T.expect(!UpdatePolicy.shouldOffer(newer, current: current, skipped: "0.2.0", userInitiated: false),
+             "skipped version stays quiet on automatic checks")
+    T.expect(UpdatePolicy.shouldOffer(newer, current: current, skipped: "0.2.0", userInitiated: true),
+             "but shows when the user asks")
+    T.expect(UpdatePolicy.shouldOffer(newer, current: current, skipped: "0.1.5", userInitiated: false),
+             "an older skip doesn't hide a newer release")
+}
+T.test("checks at most once a day") {
+    let now = Date()
+    T.expect(UpdatePolicy.isCheckDue(lastCheck: nil, now: now), "never checked")
+    T.expect(!UpdatePolicy.isCheckDue(lastCheck: now.addingTimeInterval(-3600), now: now), "an hour ago")
+    T.expect(UpdatePolicy.isCheckDue(lastCheck: now.addingTimeInterval(-25 * 3600), now: now), "25 hours ago")
+}
+
+print("UpdateInstaller")
+/// Builds a signed fake app and zips it the way `make zip` does.
+@MainActor func fakeRelease(in dir: URL, bundleID: String = "com.brentc22.Portside", version: String = "0.2.0",
+                 tamper: Bool = false) throws -> URL {
+    try? fm.removeItem(at: dir)
+    let app = dir.appendingPathComponent("build/Portside.app")
+    try fm.createDirectory(at: app.appendingPathComponent("Contents/MacOS"), withIntermediateDirectories: true)
+    try fm.copyItem(atPath: "/usr/bin/true", toPath: app.appendingPathComponent("Contents/MacOS/Portside").path)
+    let info: NSDictionary = ["CFBundleIdentifier": bundleID, "CFBundleShortVersionString": version,
+                              "CFBundleExecutable": "Portside", "CFBundlePackageType": "APPL"]
+    info.write(to: app.appendingPathComponent("Contents/Info.plist"), atomically: true)
+    try UpdateInstaller.run("/usr/bin/codesign", ["--force", "--sign", "-", app.path])
+    if tamper {
+        try Data("tampered".utf8).write(to: app.appendingPathComponent("Contents/MacOS/Portside"))
+    }
+    let zip = dir.appendingPathComponent("Portside.zip")
+    try UpdateInstaller.run("/usr/bin/ditto", ["-c", "-k", "--keepParent", app.path, zip.path])
+    return zip
+}
+let updateDir = tmp.appendingPathComponent("update")
+T.test("accepts a signed app with the right id and version") {
+    let zip = try fakeRelease(in: updateDir)
+    let app = try UpdateInstaller.prepare(zip: zip, in: updateDir, bundleID: "com.brentc22.Portside",
+                                          version: AppVersion("0.2.0")!)
+    T.equal(app.lastPathComponent, "Portside.app")
+}
+@MainActor func prepareError(_ zip: URL) -> UpdateError? {
+    do {
+        _ = try UpdateInstaller.prepare(zip: zip, in: updateDir, bundleID: "com.brentc22.Portside",
+                                        version: AppVersion("0.2.0")!)
+        return nil
+    } catch { return error as? UpdateError }
+}
+T.test("rejects another app, another version, or a broken signature") {
+    T.equal(prepareError(try fakeRelease(in: updateDir, bundleID: "com.example.Evil")),
+            .wrongApp(bundleID: "com.example.Evil"))
+    T.equal(prepareError(try fakeRelease(in: updateDir, version: "0.1.9")),
+            .wrongVersion(found: "0.1.9", expected: "0.2.0"))
+    let tampered = prepareError(try fakeRelease(in: updateDir, tamper: true))
+    if case .invalidSignature = tampered { T.expect(true, "") } else { T.expect(false, "got \(String(describing: tampered))") }
+}
+T.test("swap script replaces the app once the old process is gone") {
+    let dir = tmp.appendingPathComponent("swap it's here")  // a quote in the path, on purpose
+    try? fm.removeItem(at: dir)
+    let installed = dir.appendingPathComponent("Applications/Portside.app")
+    let fresh = dir.appendingPathComponent("work/Portside.app")
+    try fm.createDirectory(at: installed, withIntermediateDirectories: true)
+    try fm.createDirectory(at: fresh, withIntermediateDirectories: true)
+    try Data("old".utf8).write(to: installed.appendingPathComponent("marker"))
+    try Data("new".utf8).write(to: fresh.appendingPathComponent("marker"))
+
+    let finished = Process()
+    finished.executableURL = URL(fileURLWithPath: "/usr/bin/true")
+    try finished.run()
+    finished.waitUntilExit()
+    let script = UpdateInstaller.swapScript(pid: finished.processIdentifier, newApp: fresh,
+                                            destination: installed, relaunch: false)
+    try UpdateInstaller.run("/bin/sh", ["-c", script])
+
+    T.equal(try String(contentsOf: installed.appendingPathComponent("marker"), encoding: .utf8), "new")
+    T.expect(!fm.fileExists(atPath: fresh.path), "new copy was moved, not copied")
+    T.expect(!fm.fileExists(atPath: dir.appendingPathComponent("work/previous.app").path), "backup cleaned up")
+}
+
 try? fm.removeItem(at: tmp)
 T.finish()

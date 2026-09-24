@@ -15,6 +15,11 @@ struct MenuBuilder {
 
     func build(into menu: NSMenu, snapshot: Snapshot) {
         menu.removeAllItems()
+        if let update = Updater.shared.available, let version = update.version {
+            menu.addItem(item("Update Available: Portside \(version)…", #selector(Actions.showAvailableUpdate(_:)),
+                              symbol: "arrow.down.circle.fill"))
+            menu.addItem(.separator())
+        }
         if snapshot.repos.isEmpty {
             let empty = NSMenuItem(title: "No dev servers running", action: nil, keyEquivalent: "")
             empty.isEnabled = false
@@ -47,6 +52,13 @@ struct MenuBuilder {
             login.state = LaunchAtLogin.isEnabled ? .on : .off
             menu.addItem(login)
         }
+        let automatic = item("Automatically Check for Updates", #selector(Actions.toggleAutomaticUpdates(_:)))
+        automatic.state = Updater.shared.automaticallyChecks ? .on : .off
+        menu.addItem(automatic)
+        let check = item("Check for Updates…", #selector(Actions.checkForUpdates(_:)))
+        check.isEnabled = !Updater.shared.isBusy
+        menu.addItem(check)
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit Portside", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
     }
 
