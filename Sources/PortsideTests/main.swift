@@ -101,6 +101,11 @@ T.test("relative gitdir is resolved against the worktree") {
     let ctx = GitContext.resolve(from: tmp.appendingPathComponent("rel").path)
     T.equal(ctx?.repoRoot, tmp.appendingPathComponent("app").path)
 }
+T.test("pointer paths resolve with .. against their directory") {
+    T.equal(GitContext.resolve("../..", against: "/r/app/.git/worktrees/wt"), "/r/app/.git")
+    T.equal(GitContext.resolve("../app/.git/worktrees/wt", against: "/r/rel"), "/r/app/.git/worktrees/wt")
+    T.equal(GitContext.resolve("/abs/.git", against: "/r"), "/abs/.git")
+}
 T.test("walking up from / terminates") {
     T.expect(GitContext.resolve(from: "/") == nil, "expected nil for /")
     T.expect(GitContext.resolve(from: "relative/path") == nil, "expected nil for a relative path")

@@ -53,13 +53,12 @@ public struct GitContext: Equatable, Sendable {
               let line = contents.split(separator: "\n").first(where: { $0.hasPrefix("gitdir:") })
         else { return nil }
         let raw = line.dropFirst("gitdir:".count).trimmingCharacters(in: .whitespaces)
-        let gitDir = URL(fileURLWithPath: raw, relativeTo: root).standardizedFileURL
+        let gitDir = URL(fileURLWithPath: resolve(raw, against: root.path))
 
         var commonDir = gitDir
         if let common = try? String(contentsOf: gitDir.appendingPathComponent("commondir"), encoding: .utf8) {
             let trimmed = common.trimmingCharacters(in: .whitespacesAndNewlines)
-            commonDir = URL(fileURLWithPath: trimmed, relativeTo: gitDir.appendingPathComponent("/"))
-                .standardizedFileURL
+            commonDir = URL(fileURLWithPath: resolve(trimmed, against: gitDir.path))
         }
         // `<main>/.git` → `<main>`; a bare repository has no checkout, so keep the dir itself.
         let repoRoot = commonDir.lastPathComponent == ".git"
@@ -68,6 +67,14 @@ public struct GitContext: Equatable, Sendable {
         return GitContext(repoRoot: repoRoot, checkoutRoot: root.path,
                           branch: readBranch(gitDir: gitDir),
                           isLinkedWorktree: repoRoot != root.path)
+    }
+
+    /// Resolves a path from a git pointer file against the directory holding it.
+    /// NSString path math instead of `URL(relativeTo:)`, whose handling of `..`
+    /// differs between macOS versions.
+    public static func resolve(_ path: String, against base: String) -> String {
+        let joined = path.hasPrefix("/") ? path : (base as NSString).appendingPathComponent(path)
+        return (joined as NSString).standardizingPath
     }
 
     private static func readBranch(gitDir: URL) -> String? {
