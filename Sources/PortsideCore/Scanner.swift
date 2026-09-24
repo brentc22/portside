@@ -3,9 +3,7 @@ import Foundation
 /// Takes a snapshot of every listening TCP socket owned by the current user.
 public enum Scanner {
     public static func scan() -> Snapshot {
-        let listeners = LsofParser.parse(runLsof())
-        let ownPid = ProcessInfo.processInfo.processIdentifier
-        let servers = listeners.filter { $0.pid != ownPid }.map { listener -> Server in
+        let servers = LsofParser.parse(runLsof()).map { listener in
             let cwd = ProcessInspector.cwd(of: listener.pid)
             let args = ProcessInspector.arguments(of: listener.pid)
             // A process started from `/` or `~` isn't a project, even if `~` is a git repo

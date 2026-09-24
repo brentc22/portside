@@ -3,7 +3,7 @@ import AppKit
 /// Picks the first installed editor and terminal from a preference list,
 /// so "Open in Editor" opens what you actually use.
 enum InstalledApps {
-    struct App { let name: String; let url: URL }
+    struct App: Sendable { let name: String; let url: URL }
 
     static let editors = [
         "com.todesktop.230313mzl4w4u92",  // Cursor
@@ -23,8 +23,10 @@ enum InstalledApps {
         "com.apple.Terminal",
     ]
 
-    static var editor: App? { first(of: editors) }
-    static var terminal: App? { first(of: terminals) }
+    // Looked up once per launch: Launch Services queries aren't free, and the
+    // installed editor doesn't change between two menu opens.
+    static let editor = first(of: editors)
+    static let terminal = first(of: terminals)
 
     private static func first(of bundleIDs: [String]) -> App? {
         for id in bundleIDs {

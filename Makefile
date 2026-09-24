@@ -1,7 +1,6 @@
 APP      := Portside
 BUNDLE   := $(APP).app
 CONTENTS := $(BUNDLE)/Contents
-VERSION  := $(shell /usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Resources/Info.plist)
 
 .PHONY: all build bundle install run test zip clean
 
@@ -34,8 +33,7 @@ test:
 	swift run PortsideTests
 
 zip: bundle
-	ditto -c -k --keepParent $(BUNDLE) $(APP)-$(VERSION).zip
-	@shasum -a 256 $(APP)-$(VERSION).zip
+	ditto -c -k --keepParent $(BUNDLE) $(APP).zip
 
 clean:
-	rm -rf .build $(BUNDLE) $(APP)-*.zip
+	rm -rf .build $(BUNDLE) $(APP).zip

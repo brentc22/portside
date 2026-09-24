@@ -15,9 +15,6 @@ struct MenuBuilder {
 
     func build(into menu: NSMenu, snapshot: Snapshot) {
         menu.removeAllItems()
-        let editor = InstalledApps.editor
-        let terminal = InstalledApps.terminal
-
         if snapshot.repos.isEmpty {
             let empty = NSMenuItem(title: "No dev servers running", action: nil, keyEquivalent: "")
             empty.isEnabled = false
@@ -27,7 +24,7 @@ struct MenuBuilder {
         for repo in snapshot.repos {
             menu.addItem(NSMenuItem.sectionHeader(title: repo.name))
             for checkout in repo.checkouts {
-                menu.addItem(checkoutItem(checkout, repo: repo, editor: editor, terminal: terminal))
+                menu.addItem(checkoutItem(checkout))
                 for server in checkout.servers {
                     menu.addItem(serverItem(server, indent: 1))
                 }
@@ -45,20 +42,17 @@ struct MenuBuilder {
         }
 
         menu.addItem(.separator())
-        menu.addItem(item("Refresh", #selector(Actions.refresh(_:)), key: "r"))
         if LaunchAtLogin.isAvailable {
             let login = item("Launch at Login", #selector(Actions.toggleLaunchAtLogin(_:)))
             login.state = LaunchAtLogin.isEnabled ? .on : .off
             menu.addItem(login)
         }
-        let quit = NSMenuItem(title: "Quit Portside", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        menu.addItem(quit)
+        menu.addItem(NSMenuItem(title: "Quit Portside", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
     }
 
     // MARK: - Rows
 
-    private func checkoutItem(_ checkout: CheckoutGroup, repo: RepoGroup,
-                              editor: InstalledApps.App?, terminal: InstalledApps.App?) -> NSMenuItem {
+    private func checkoutItem(_ checkout: CheckoutGroup) -> NSMenuItem {
         let title = NSMutableAttributedString(string: checkout.branch ?? "(no branch)",
                                               attributes: [.font: NSFont.menuFont(ofSize: 0)])
         if checkout.isLinkedWorktree {
@@ -72,11 +66,11 @@ struct MenuBuilder {
         sub.autoenablesItems = false
         sub.addItem(disabled(Formatting.abbreviate(checkout.path)))
         sub.addItem(.separator())
-        if let editor {
+        if let editor = InstalledApps.editor {
             sub.addItem(item("Open in \(editor.name)", #selector(Actions.openWithApp(_:)),
                              object: AppTarget(path: checkout.path, app: editor.url), symbol: "chevron.left.forwardslash.chevron.right"))
         }
-        if let terminal {
+        if let terminal = InstalledApps.terminal {
             sub.addItem(item("Open in \(terminal.name)", #selector(Actions.openWithApp(_:)),
                              object: AppTarget(path: checkout.path, app: terminal.url), symbol: "terminal"))
         }
@@ -129,9 +123,9 @@ struct MenuBuilder {
 
     // MARK: - Helpers
 
-    private func item(_ title: String, _ action: Selector, key: String = "",
+    private func item(_ title: String, _ action: Selector,
                       object: Any? = nil, symbol name: String? = nil) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
         item.target = actions
         item.representedObject = object
         if let name { item.image = symbol(name) }

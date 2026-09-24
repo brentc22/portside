@@ -16,9 +16,7 @@ jobs:
       - name: Test
         run: swift run PortsideTests
       - name: Build universal app
-        run: |
-          make bundle
-          ditto -c -k --keepParent Portside.app Portside.zip
+        run: make zip
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}

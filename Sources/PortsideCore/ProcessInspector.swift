@@ -32,8 +32,4 @@ public enum ProcessInspector {
         let seconds = TimeInterval(info.pbi_start_tvsec) + TimeInterval(info.pbi_start_tvusec) / 1_000_000
         return Date(timeIntervalSince1970: seconds)
     }
-
-    public static func isAlive(_ pid: Int32) -> Bool {
-        kill(pid, 0) == 0 || errno == EPERM
-    }
 }

@@ -28,7 +28,7 @@ public enum LsofParser {
 
         func flush() {
             if let pid, !ports.isEmpty {
-                result.append(Listener(pid: pid, command: command, ports: ports))
+                result.append(Listener(pid: pid, command: command, ports: ports.sorted()))
             }
         }
 
@@ -52,11 +52,11 @@ public enum LsofParser {
             }
         }
         flush()
-        return result.map { Listener(pid: $0.pid, command: $0.command, ports: $0.ports.sorted()) }
+        return result
     }
 
     /// `*:8080` → 8080, `[::1]:5173` → 5173. Anything after the last colon.
-    static func port(fromName name: Substring) -> Int? {
+    private static func port(fromName name: Substring) -> Int? {
         guard let colon = name.lastIndex(of: ":") else { return nil }
         return Int(name[name.index(after: colon)...])
     }

@@ -32,9 +32,8 @@ public enum ToolDetector {
             return normalize(name)
         }
         guard let last = parts.last else { return nil }
-        let base = last.replacingOccurrences(of: ".js", with: "")
-            .replacingOccurrences(of: ".mjs", with: "")
-            .replacingOccurrences(of: ".cjs", with: "")
+        if knownTools.contains(last) { return normalize(last) }  // manage.py
+        let base = (last as NSString).deletingPathExtension     // wrangler.js
         return knownTools.contains(base) ? normalize(base) : nil
     }
 

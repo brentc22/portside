@@ -44,8 +44,6 @@ final class Actions: NSObject {
     @objc func toggleLaunchAtLogin(_ sender: NSMenuItem) {
         LaunchAtLogin.toggle()
     }
-
-    @objc func refresh(_ sender: NSMenuItem) { onChange() }
 }
 
 /// A directory to open with a specific application (editor or terminal).

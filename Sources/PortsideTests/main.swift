@@ -1,5 +1,5 @@
 import Foundation
-import PortsideCore
+@testable import PortsideCore
 
 // Line-buffer stdout so CI logs show which test was running if one hangs.
 setvbuf(stdout, nil, _IOLBF, 0)
@@ -101,10 +101,35 @@ T.test("relative gitdir is resolved against the worktree") {
     let ctx = GitContext.resolve(from: tmp.appendingPathComponent("rel").path)
     T.equal(ctx?.repoRoot, tmp.appendingPathComponent("app").path)
 }
-T.test("pointer paths resolve with .. against their directory") {
-    T.equal(GitContext.resolve("../..", against: "/r/app/.git/worktrees/wt"), "/r/app/.git")
-    T.equal(GitContext.resolve("../app/.git/worktrees/wt", against: "/r/rel"), "/r/app/.git/worktrees/wt")
-    T.equal(GitContext.resolve("/abs/.git", against: "/r"), "/abs/.git")
+T.test("normalize folds . and .. lexically") {
+    T.equal(GitContext.normalize("../..", relativeTo: "/r/app/.git/worktrees/wt"), "/r/app/.git")
+    T.equal(GitContext.normalize("../app/./.git", relativeTo: "/r/rel"), "/r/app/.git")
+    T.equal(GitContext.normalize("/abs/.git", relativeTo: "/r"), "/abs/.git")
+    T.equal(GitContext.normalize("../../..", relativeTo: "/r"), "/")
+}
+T.test("CRLF pointer files still resolve") {
+    try write("crlf/.git", "gitdir: ../app/.git/worktrees/wt-feat\r\n")
+    T.equal(GitContext.resolve(from: tmp.appendingPathComponent("crlf").path)?.repoRoot,
+            tmp.appendingPathComponent("app").path)
+}
+T.test("submodule (gitdir without commondir) is its own repo") {
+    try write("app/.git/modules/web/HEAD", "ref: refs/heads/main\n")
+    try write("app/web/.git", "gitdir: ../.git/modules/web\n")
+    let ctx = GitContext.resolve(from: tmp.appendingPathComponent("app/web").path)
+    T.equal(ctx?.repoRoot, tmp.appendingPathComponent("app/web").path)
+    T.equal(ctx?.isLinkedWorktree, false)
+}
+T.test("stale pointer to a missing gitdir gives nil") {
+    try write("stale/.git", "gitdir: /nonexistent/.git/worktrees/gone\n")
+    T.expect(GitContext.resolve(from: tmp.appendingPathComponent("stale").path) == nil, "expected nil")
+}
+T.test("repo reached through a symlink stays one repo") {
+    try fm.createSymbolicLink(at: tmp.appendingPathComponent("link"), withDestinationURL: tmp.appendingPathComponent("app"))
+    try write("wt-link/.git", "gitdir: \(tmp.path)/link/.git/worktrees/wt-feat\n")
+    let main = GitContext.resolve(from: tmp.appendingPathComponent("link").path)
+    let worktree = GitContext.resolve(from: tmp.appendingPathComponent("wt-link").path)
+    T.equal(main?.repoRoot, tmp.appendingPathComponent("link").path)
+    T.equal(worktree?.repoRoot, main?.repoRoot, "worktree and main checkout:")
 }
 T.test("walking up from / terminates") {
     T.expect(GitContext.resolve(from: "/") == nil, "expected nil for /")
@@ -122,17 +147,17 @@ T.test("directory outside git gives nil") {
 
 print("Snapshot")
 @MainActor func server(_ pid: Int32, _ port: Int, repo: String?, checkout: String? = nil,
-            branch: String? = nil, worktree: Bool = false) -> Server {
-    let git = repo.map { GitContext(repoRoot: $0, checkoutRoot: checkout ?? $0, branch: branch, isLinkedWorktree: worktree) }
+            branch: String? = nil) -> Server {
+    let git = repo.map { GitContext(repoRoot: $0, checkoutRoot: checkout ?? $0, branch: branch) }
     return Server(pid: pid, command: "node", tool: "vite", ports: [port], cwd: nil, git: git, startedAt: nil)
 }
 T.test("groups by repo, then checkout; main checkout first; other separate") {
     let snap = Snapshot(servers: [
-        server(1, 8091, repo: "/r/vernast", checkout: "/r/wt-b", branch: "feat/b", worktree: true),
+        server(1, 8091, repo: "/r/vernast", checkout: "/r/wt-b", branch: "feat/b"),
         server(2, 8080, repo: "/r/vernast", branch: "main"),
         server(3, 7337, repo: "/r/testmail", branch: "main"),
         server(4, 5000, repo: nil),
-        server(5, 8092, repo: "/r/vernast", checkout: "/r/wt-a", branch: "feat/a", worktree: true),
+        server(5, 8092, repo: "/r/vernast", checkout: "/r/wt-a", branch: "feat/a"),
         server(6, 3000, repo: "/r/vernast", branch: "main"),
     ])
     T.equal(snap.repos.map(\.name), ["testmail", "vernast"])

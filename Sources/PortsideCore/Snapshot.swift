@@ -55,22 +55,21 @@ public struct Snapshot: Equatable, Sendable {
     public init(servers: [Server]) {
         let byPort: (Server, Server) -> Bool = { ($0.ports.first ?? 0) < ($1.ports.first ?? 0) }
 
-        let inRepo = servers.filter { $0.git != nil }
-        let repoRoots = Dictionary(grouping: inRepo) { $0.git!.repoRoot }
+        let inRepo = servers.compactMap { server in server.git.map { (server, $0) } }
 
-        repos = repoRoots.map { root, servers in
-            let checkouts = Dictionary(grouping: servers) { $0.git!.checkoutRoot }
-                .map { path, servers in
-                    CheckoutGroup(path: path, branch: servers[0].git!.branch,
-                                  isLinkedWorktree: servers[0].git!.isLinkedWorktree,
-                                  servers: servers.sorted(by: byPort))
+        repos = Dictionary(grouping: inRepo) { $0.1.repoRoot }.map { root, pairs in
+            let checkouts = Dictionary(grouping: pairs) { $0.1.checkoutRoot }
+                .map { path, pairs in
+                    CheckoutGroup(path: path, branch: pairs[0].1.branch,
+                                  isLinkedWorktree: pairs[0].1.isLinkedWorktree,
+                                  servers: pairs.map(\.0).sorted(by: byPort))
                 }
                 // Main checkout first, then worktrees by branch name.
                 .sorted { a, b in
                     if a.isLinkedWorktree != b.isLinkedWorktree { return !a.isLinkedWorktree }
                     return (a.branch ?? a.path).localizedStandardCompare(b.branch ?? b.path) == .orderedAscending
                 }
-            return RepoGroup(name: (root as NSString).lastPathComponent, root: root, checkouts: checkouts)
+            return RepoGroup(name: pairs[0].1.repoName, root: root, checkouts: checkouts)
         }
         .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
 
