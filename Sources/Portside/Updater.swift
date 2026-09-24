@@ -175,6 +175,7 @@ final class Updater {
         let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 300, height: 76),
                             styleMask: [.titled], backing: .buffered, defer: false)
         panel.title = "Portside Update"
+        panel.isReleasedWhenClosed = false  // we hold it in `progress`; AppKit must not free it on close
         let label = NSTextField(labelWithString: message)
         let bar = NSProgressIndicator()
         bar.isIndeterminate = true
