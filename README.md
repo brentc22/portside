@@ -50,7 +50,8 @@ opening a terminal.
 | ⚡ **One-click actions** | Open `localhost:<port>`, copy the URL, stop (SIGTERM) or force quit (SIGKILL), or stop every server in a worktree at once. |
 | 🧑‍💻 **Jump to the code** | Open the checkout in your editor (Cursor, VS Code, Zed, Windsurf, Sublime, Xcode) or terminal (Ghostty, iTerm, Warp, kitty, WezTerm, Terminal), whichever you have installed. |
 | 🧹 **Everything else stays out of the way** | AirPlay, Spotify, Docker and other listeners that weren't started from a git checkout go under *Other listeners*. |
-| 🪶 **Light** | No Dock icon, no permissions to grant, no network access, no dependencies. A scan takes ~50–100 ms. |
+| 🔄 **Updates itself** | Checks GitHub once a day and offers new versions with their release notes: *Install and Relaunch*, *Later* or *Skip This Version*. Turn it off under **Automatically Check for Updates**. |
+| 🪶 **Light** | No Dock icon, no permissions to grant, no dependencies. The only network call is that daily update check. A scan takes ~50–100 ms. |
 
 ## Install
 
@@ -70,6 +71,8 @@ opening a terminal.
 
 Requires macOS 14 Sonoma or later. Universal binary (Apple silicon + Intel).
 
+Portside keeps itself up to date from then on. You can also pick **Check for Updates…** from the menu.
+
 ### Build from source
 
 You only need the Xcode Command Line Tools, not the full Xcode.
@@ -88,6 +91,10 @@ make run        # builds, installs to /Applications and launches
 | Where was it started? | working directory | `proc_pidinfo(PROC_PIDVNODEPATHINFO)`, straight from the kernel |
 | What is it? | `vite`, `next`, … | argv via `sysctl(KERN_PROCARGS2)`, matched against `node_modules/.bin/*` |
 | Which repo and branch? | repo, worktree, branch | walks up to `.git`, follows `gitdir:` and `commondir` for worktrees, reads `HEAD` |
+
+Updates come from GitHub's `releases/latest` API. Before swapping anything in, Portside checks that the
+downloaded app has the same bundle id, the promised version and a valid code signature. The swap
+happens after Portside quits, and if moving the new copy fails, the old one is put back.
 
 No `git` subprocesses and no `ps` call per process: one `lsof`, and the rest is syscalls
 and a few small file reads. Portside only sees your own processes, so it doesn't need admin
@@ -130,6 +137,7 @@ Sources/
 - [ ] Docker/OrbStack: map published ports back to their compose project
 - [ ] Global hotkey
 - [ ] Notarized builds and a Homebrew cask
+- [ ] EdDSA-signed updates (Sparkle-style), so an update is verified by more than HTTPS and GitHub
 
 ## Contributing
 

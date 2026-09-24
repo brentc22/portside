@@ -44,6 +44,18 @@ final class Actions: NSObject {
     @objc func toggleLaunchAtLogin(_ sender: NSMenuItem) {
         LaunchAtLogin.toggle()
     }
+
+    @objc func toggleAutomaticUpdates(_ sender: NSMenuItem) {
+        Updater.shared.automaticallyChecks.toggle()
+    }
+
+    @objc func checkForUpdates(_ sender: NSMenuItem) {
+        Updater.shared.check(userInitiated: true)
+    }
+
+    @objc func showAvailableUpdate(_ sender: NSMenuItem) {
+        Updater.shared.offerAvailable()
+    }
 }
 
 /// A directory to open with a specific application (editor or terminal).

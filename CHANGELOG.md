@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Update check: once a day, Portside looks for a new release on GitHub and offers to install it
+  (Install and Relaunch / Later / Skip This Version). Toggle it with **Automatically Check for
+  Updates**, or use **Check for Updates…** in the menu
+- Colorful new app icon
+
 ## 0.1.0 — 2026-09-24
 
 First release.
