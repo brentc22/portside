@@ -8,11 +8,13 @@ on:
 jobs:
   test:
     runs-on: macos-15
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Build
         run: swift build
       - name: Test
         run: swift run PortsideTests
+        timeout-minutes: 3
       - name: Bundle
         run: make bundle

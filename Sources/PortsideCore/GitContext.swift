@@ -23,8 +23,11 @@ public struct GitContext: Equatable, Sendable {
     }
 
     public static func resolve(from path: String, fileManager fm: FileManager = .default) -> GitContext? {
-        var dir = URL(fileURLWithPath: path).standardizedFileURL
-        while true {
+        // Walk with NSString paths: on macOS 14/15, URL("/").deletingLastPathComponent()
+        // returns "/..", so a URL-based "until parent == self" loop never ends.
+        var current = (path as NSString).standardizingPath
+        while current.hasPrefix("/") {
+            let dir = URL(fileURLWithPath: current)
             let dotGit = dir.appendingPathComponent(".git")
             var isDirectory: ObjCBool = false
             if fm.fileExists(atPath: dotGit.path, isDirectory: &isDirectory) {
@@ -32,10 +35,10 @@ public struct GitContext: Equatable, Sendable {
                     ? mainCheckout(at: dir, gitDir: dotGit)
                     : linkedWorktree(at: dir, pointer: dotGit)
             }
-            let parent = dir.deletingLastPathComponent()
-            if parent.path == dir.path { return nil }
-            dir = parent
+            if current == "/" { return nil }
+            current = (current as NSString).deletingLastPathComponent
         }
+        return nil
     }
 
     private static func mainCheckout(at root: URL, gitDir: URL) -> GitContext {

@@ -1,6 +1,9 @@
 import Foundation
 import PortsideCore
 
+// Line-buffer stdout so CI logs show which test was running if one hangs.
+setvbuf(stdout, nil, _IOLBF, 0)
+
 print("LsofParser")
 T.test("parses processes, dedupes IPv4/IPv6 and sorts ports") {
     let output = """
@@ -97,6 +100,10 @@ T.test("relative gitdir is resolved against the worktree") {
     try write("rel/.git", "gitdir: ../app/.git/worktrees/wt-feat\n")
     let ctx = GitContext.resolve(from: tmp.appendingPathComponent("rel").path)
     T.equal(ctx?.repoRoot, tmp.appendingPathComponent("app").path)
+}
+T.test("walking up from / terminates") {
+    T.expect(GitContext.resolve(from: "/") == nil, "expected nil for /")
+    T.expect(GitContext.resolve(from: "relative/path") == nil, "expected nil for a relative path")
 }
 T.test("detached HEAD shows a short sha") {
     try write("det/.git/HEAD", "3f2a9c1d8e7b6a5f4e3d2c1b0a9f8e7d6c5b4a39\n")
