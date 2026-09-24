@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 — 2026-09-24
 
 - Update check: once a day, Portside looks for a new release on GitHub and offers to install it
   (Install and Relaunch / Later / Skip This Version). Toggle it with **Automatically Check for
