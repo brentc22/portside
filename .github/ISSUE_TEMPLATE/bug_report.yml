@@ -1,0 +1,33 @@
+name: Bug report
+description: Something shows up wrong, is missing, or doesn't work
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did Portside show or do instead?
+    validations:
+      required: true
+  - type: textarea
+    id: server
+    attributes:
+      label: The server involved
+      description: |
+        How was it started (e.g. `npm run dev` in a worktree), and what does
+        `lsof -nP -iTCP:<port> -sTCP:LISTEN` show for it?
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Portside version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "15.3, Apple silicon"
+    validations:
+      required: true
