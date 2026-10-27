@@ -18,6 +18,8 @@
 </p>
 
 <p align="center">
+  <code>brew install --cask brentc22/tap/portside</code>
+  &nbsp;·&nbsp;
   <a href="https://github.com/brentc22/portside/releases/latest/download/Portside.zip"><b>Download Portside.zip</b></a>
   &nbsp;·&nbsp;
   <a href="#build-from-source">Build from source</a>
@@ -54,6 +56,12 @@ opening a terminal.
 | 🪶 **Light** | No Dock icon, no permissions to grant, no dependencies. The only network call is that daily update check. A scan takes ~50–100 ms. |
 
 ## Install
+
+```sh
+brew install --cask brentc22/tap/portside
+```
+
+Or by hand:
 
 1. Download [`Portside.zip`](https://github.com/brentc22/portside/releases/latest/download/Portside.zip)
    from the latest release.
@@ -136,7 +144,8 @@ Sources/
 - [ ] Custom links per repo (e.g. preview deployments per branch)
 - [ ] Docker/OrbStack: map published ports back to their compose project
 - [ ] Global hotkey
-- [ ] Notarized builds and a Homebrew cask
+- [x] Homebrew cask
+- [ ] Notarized builds
 - [ ] EdDSA-signed updates (Sparkle-style), so an update is verified by more than HTTPS and GitHub
 
 ## Contributing
