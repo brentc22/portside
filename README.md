@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <code>brew install --cask brentc22/tap/portside</code>
+  <a href="#install"><b>Install with Homebrew</b></a>
   &nbsp;·&nbsp;
   <a href="https://github.com/brentc22/portside/releases/latest/download/Portside.zip"><b>Download Portside.zip</b></a>
   &nbsp;·&nbsp;
@@ -58,6 +58,8 @@ opening a terminal.
 ## Install
 
 ```sh
+brew tap brentc22/tap
+brew trust brentc22/tap
 brew install --cask brentc22/tap/portside
 ```
 
