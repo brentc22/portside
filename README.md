@@ -51,7 +51,8 @@ opening a terminal.
 | ⏱️ **Uptime per server** | Spot the ones you forgot about. |
 | ⚡ **One-click actions** | Open `localhost:<port>`, copy the URL, stop (SIGTERM) or force quit (SIGKILL), or stop every server in a worktree at once. |
 | 🧑‍💻 **Jump to the code** | Open the checkout in your editor (Cursor, VS Code, Zed, Windsurf, Sublime, Xcode) or terminal (Ghostty, iTerm, Warp, kitty, WezTerm, Terminal), whichever you have installed. |
-| 🧹 **Everything else stays out of the way** | AirPlay, Spotify, Docker and other listeners that weren't started from a git checkout go under *Other listeners*. |
+| 🐳 **Docker and OrbStack containers** | Published ports show up per container, by name. A Compose or Supabase project inside a git checkout sits under that repo; other containers get their own *Containers* section. Stop and Kill go through `docker stop` / `docker kill`. |
+| 🧹 **Everything else stays out of the way** | AirPlay, Spotify and other listeners that weren't started from a git checkout go under *Other listeners*. |
 | 🔄 **Updates itself** | Checks GitHub once a day and offers new versions with their release notes: *Install and Relaunch*, *Later* or *Skip This Version*. Turn it off under **Automatically Check for Updates**. |
 | 🪶 **Light** | No Dock icon, no permissions to grant, no dependencies. The only network call is that daily update check. A scan takes ~50–100 ms. |
 
@@ -142,7 +143,7 @@ Sources/
 
 - [ ] Notification when a server has been running for longer than N days
 - [ ] Custom links per repo (e.g. preview deployments per branch)
-- [ ] Docker/OrbStack: map published ports back to their compose project
+- [x] Docker/OrbStack: map published ports back to their container and compose project
 - [ ] Global hotkey
 - [x] Homebrew cask
 - [ ] Notarized builds

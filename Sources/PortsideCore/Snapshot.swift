@@ -9,9 +9,12 @@ public struct Server: Equatable, Sendable {
     public let cwd: String?
     public let git: GitContext?
     public let startedAt: Date?
+    /// Set when the ports belong to a Docker container rather than to `pid` itself,
+    /// which is then only the VM's port proxy.
+    public let container: Container?
 
     public init(pid: Int32, command: String, tool: String, ports: [Int],
-                cwd: String?, git: GitContext?, startedAt: Date?) {
+                cwd: String?, git: GitContext?, startedAt: Date?, container: Container? = nil) {
         self.pid = pid
         self.command = command
         self.tool = tool
@@ -19,6 +22,7 @@ public struct Server: Equatable, Sendable {
         self.cwd = cwd
         self.git = git
         self.startedAt = startedAt
+        self.container = container
     }
 }
 
@@ -37,18 +41,21 @@ public struct RepoGroup: Equatable, Sendable {
     public var serverCount: Int { checkouts.reduce(0) { $0 + $1.servers.count } }
 }
 
-/// Servers split into the ones started from a git checkout (your dev servers)
-/// and everything else that happens to listen (AirPlay, Spotify, Docker, …).
+/// Servers split into the ones started from a git checkout (your dev servers),
+/// Docker containers outside a checkout, and everything else that happens to listen
+/// (AirPlay, Spotify, …).
 public struct Snapshot: Equatable, Sendable {
     public let repos: [RepoGroup]
+    public let containers: [Server]
     public let other: [Server]
 
     public static let empty = Snapshot(repos: [], other: [])
 
     public var devServerCount: Int { repos.reduce(0) { $0 + $1.serverCount } }
 
-    public init(repos: [RepoGroup], other: [Server]) {
+    public init(repos: [RepoGroup], containers: [Server] = [], other: [Server]) {
         self.repos = repos
+        self.containers = containers
         self.other = other
     }
 
@@ -73,13 +80,14 @@ public struct Snapshot: Equatable, Sendable {
         }
         .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
 
-        other = servers.filter { $0.git == nil }.sorted(by: byPort)
+        containers = servers.filter { $0.git == nil && $0.container != nil }.sorted(by: byPort)
+        other = servers.filter { $0.git == nil && $0.container == nil }.sorted(by: byPort)
     }
 }
 
 extension Snapshot {
     /// Keeps only repos below `prefix` — used for screenshots of the demo repos.
     public func onlyRepos(under prefix: String) -> Snapshot {
-        Snapshot(repos: repos.filter { $0.root.hasPrefix(prefix) }, other: other)
+        Snapshot(repos: repos.filter { $0.root.hasPrefix(prefix) }, containers: containers, other: other)
     }
 }

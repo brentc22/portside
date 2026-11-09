@@ -20,7 +20,7 @@ struct MenuBuilder {
                               symbol: "arrow.down.circle.fill"))
             menu.addItem(.separator())
         }
-        if snapshot.repos.isEmpty {
+        if snapshot.repos.isEmpty && snapshot.containers.isEmpty {
             let empty = NSMenuItem(title: "No dev servers running", action: nil, keyEquivalent: "")
             empty.isEnabled = false
             menu.addItem(empty)
@@ -34,6 +34,11 @@ struct MenuBuilder {
                     menu.addItem(serverItem(server, indent: 1))
                 }
             }
+        }
+
+        if !snapshot.containers.isEmpty {
+            menu.addItem(NSMenuItem.sectionHeader(title: "Containers"))
+            for server in snapshot.containers { menu.addItem(serverItem(server, indent: 0)) }
         }
 
         if !snapshot.other.isEmpty {
@@ -91,9 +96,10 @@ struct MenuBuilder {
         sub.addItem(item("Copy Path", #selector(Actions.copyString(_:)),
                          object: checkout.path, symbol: "doc.on.doc"))
         sub.addItem(.separator())
-        let pids = checkout.servers.map(\.pid)
-        let noun = pids.count == 1 ? "Server" : "\(pids.count) Servers"
-        sub.addItem(item("Stop \(noun)", #selector(Actions.stop(_:)), object: pids, symbol: "stop.circle"))
+        let count = checkout.servers.count
+        let noun = count == 1 ? "Server" : "\(count) Servers"
+        sub.addItem(item("Stop \(noun)", #selector(Actions.stop(_:)),
+                         object: StopTarget(checkout.servers), symbol: "stop.circle"))
         row.submenu = sub
         return row
     }
@@ -111,7 +117,8 @@ struct MenuBuilder {
         let row = NSMenuItem(title: ports, action: nil, keyEquivalent: "")
         row.attributedTitle = title
         row.indentationLevel = indent
-        row.image = statusDot(isDev: server.git != nil)
+        row.image = server.container != nil && server.git == nil
+            ? containerIcon() : statusDot(isDev: server.git != nil)
 
         let sub = NSMenu()
         sub.autoenablesItems = false
@@ -124,10 +131,16 @@ struct MenuBuilder {
                              object: "http://localhost:\(port)", symbol: "link"))
         }
         sub.addItem(.separator())
-        sub.addItem(item("Stop", #selector(Actions.stop(_:)), object: [server.pid], symbol: "stop.circle"))
-        sub.addItem(item("Force Quit", #selector(Actions.forceQuit(_:)), object: [server.pid], symbol: "xmark.octagon"))
+        let target = StopTarget([server])
+        sub.addItem(item("Stop", #selector(Actions.stop(_:)), object: target, symbol: "stop.circle"))
+        sub.addItem(item(server.container == nil ? "Force Quit" : "Kill", #selector(Actions.forceQuit(_:)),
+                         object: target, symbol: "xmark.octagon"))
         sub.addItem(.separator())
-        sub.addItem(disabled("PID \(server.pid) · \(server.command)"))
+        if let container = server.container {
+            sub.addItem(disabled("Container \(container.id.prefix(12)) · \(container.image)"))
+        } else {
+            sub.addItem(disabled("PID \(server.pid) · \(server.command)"))
+        }
         if let cwd = server.cwd { sub.addItem(disabled(Formatting.abbreviate(cwd))) }
         row.submenu = sub
         return row
@@ -159,6 +172,11 @@ struct MenuBuilder {
 
     private func symbol(_ name: String) -> NSImage? {
         NSImage(systemSymbolName: name, accessibilityDescription: nil)
+    }
+
+    private func containerIcon() -> NSImage? {
+        NSImage(systemSymbolName: "shippingbox", accessibilityDescription: "Container")?
+            .withSymbolConfiguration(.init(pointSize: 9, weight: .regular))
     }
 
     private func statusDot(isDev: Bool) -> NSImage? {

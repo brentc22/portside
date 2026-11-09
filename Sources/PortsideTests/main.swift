@@ -168,6 +168,54 @@ T.test("groups by repo, then checkout; main checkout first; other separate") {
     T.equal(snap.devServerCount, 5)
 }
 
+T.test("containers outside a checkout get their own section") {
+    let box = Container(id: "abc", name: "web", image: "nginx", ports: [8088], workdir: nil)
+    let snap = Snapshot(servers: [
+        Server(pid: 9, command: "OrbStack Helper", tool: "web", ports: [8088], cwd: nil, git: nil,
+               startedAt: nil, container: box),
+        Server(pid: 9, command: "OrbStack Helper", tool: "docker", ports: [32222], cwd: nil, git: nil,
+               startedAt: nil),
+    ])
+    T.equal(snap.containers.map(\.tool), ["web"])
+    T.equal(snap.other.map(\.ports), [[32222]])
+    T.equal(snap.devServerCount, 0)
+}
+
+print("Docker")
+T.test("host ports: published TCP only, both families once, ranges expanded") {
+    T.equal(DockerPS.hostPorts("0.0.0.0:8088->8080/tcp, [::]:8088->8080/tcp"), [8088])
+    T.equal(DockerPS.hostPorts("5432/tcp, 0.0.0.0:53->53/udp"), [])
+    T.equal(DockerPS.hostPorts("127.0.0.1:7000-7002->7000-7002/tcp"), [7000, 7001, 7002])
+    T.equal(DockerPS.hostPorts(":::6080->6080/tcp"), [6080])
+    T.equal(DockerPS.hostPorts(""), [])
+}
+T.test("parses docker ps json lines, workdir from compose or supabase labels") {
+    let output = """
+    {"ID":"d6f8a7b94073","Image":"supabase/studio","Labels":"com.docker.compose.project=db,com.supabase.cli.workdir=/Users/x/db","Names":"studio","Ports":"0.0.0.0:55423->3000/tcp, [::]:55423->3000/tcp"}
+    {"ID":"9160a6b5f127","Image":"pg-meta","Labels":"","Names":"meta","Ports":"8080/tcp"}
+    {"ID":"1","Image":"app","Labels":"com.docker.compose.project.working_dir=/Users/x/app,com.docker.compose.service=web","Names":"app-web-1","Ports":"0.0.0.0:6080->6080/tcp"}
+    not json
+    """
+    T.equal(DockerPS.parse(output), [
+        Container(id: "d6f8a7b94073", name: "studio", image: "supabase/studio", ports: [55423], workdir: "/Users/x/db"),
+        Container(id: "1", name: "app-web-1", image: "app", ports: [6080], workdir: "/Users/x/app"),
+    ], "container without published ports is skipped")
+}
+T.test("proxy ports are split over containers; the rest stays with the proxy") {
+    let a = Container(id: "a", name: "a", image: "", ports: [6080, 8088], workdir: nil)
+    let b = Container(id: "b", name: "b", image: "", ports: [9001], workdir: nil)
+    let split = Scanner.assign(ports: [6080, 8088, 9001, 32222], to: [a, b])
+    T.equal(split.claimed.map(\.0.id), ["a", "b"])
+    T.equal(split.claimed.map(\.1), [[6080, 8088], [9001]])
+    T.equal(split.rest, [32222])
+}
+T.test("recognises the Docker Desktop and OrbStack proxies") {
+    T.expect(Scanner.isContainerProxy("OrbStack Helper"), "OrbStack Helper")
+    T.expect(Scanner.isContainerProxy("OrbStack"), "OrbStack")
+    T.expect(Scanner.isContainerProxy("com.docker.backend"), "com.docker.backend")
+    T.expect(!Scanner.isContainerProxy("node"), "node")
+}
+
 print("Formatting")
 T.test("uptime") {
     let now = Date(timeIntervalSince1970: 1_000_000)
@@ -187,11 +235,13 @@ T.test("scan runs and sees this machine's listeners without crashing") {
     let start = Date()
     let snap = Scanner.scan()
     let ms = Int(Date().timeIntervalSince(start) * 1000)
-    print("       \(snap.devServerCount) dev, \(snap.other.count) other, \(ms) ms")
+    print("       \(snap.devServerCount) dev, \(snap.containers.count) containers, \(snap.other.count) other, \(ms) ms")
+    for s in snap.containers { print("       container :\(s.ports) \(s.tool)") }
+    for s in snap.other { print("       other :\(s.ports) \(s.tool) (\(s.command))") }
     for repo in snap.repos {
         for c in repo.checkouts {
             for s in c.servers {
-                print("       \(repo.name) [\(c.branch ?? "-")\(c.isLinkedWorktree ? " wt" : "")] :\(s.ports) \(s.tool)")
+                print("       \(repo.name) [\(c.branch ?? "-")\(c.isLinkedWorktree ? " wt" : "")] :\(s.ports) \(s.tool)\(s.container != nil ? " [container]" : "")")
             }
         }
     }
