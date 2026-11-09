@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 — 2026-11-09
+
+- Docker and OrbStack containers show up by name. Published ports used to collapse into a
+  single `docker` row under *Other listeners*; now every container gets its own row (#5)
+- A container from a Compose or Supabase project inside a git checkout sits under that repo;
+  other containers get a new **Containers** section
+- **Stop** and **Kill** on a container run `docker stop` / `docker kill` instead of signalling
+  the VM's port proxy, which took every container down with it
+
 ## 0.2.0 — 2026-09-24
 
 - Update check: once a day, Portside looks for a new release on GitHub and offers to install it
